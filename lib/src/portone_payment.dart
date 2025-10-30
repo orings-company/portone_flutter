@@ -19,6 +19,7 @@ import 'package:portone_flutter_v2/src/helpers/url_normalizer.dart';
 import 'package:portone_flutter_v2/src/models/payment_request.dart';
 import 'package:portone_flutter_v2/src/models/payment_response.dart';
 import 'package:portone_flutter_v2/src/validators/webview_error_use_case.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 /// Default logger function using [log].
 void _defaultLog(String message, {Object? error, StackTrace? stackTrace}) {
@@ -146,7 +147,8 @@ class PortonePaymentState extends State<PortonePayment> {
     paymentData['redirectUrl'] = redirectUrl;
     widget.logger(jsonEncode(paymentData));
 
-    final html = '''
+    final html =
+        '''
 <!doctype html>
 <html>
   <head>
@@ -232,51 +234,53 @@ class PortonePaymentState extends State<PortonePayment> {
                 },
                 onReceivedError:
                     (InAppWebViewController controller, WebResourceRequest request, WebResourceError error) {
-                  if (WebviewErrorUseCase.shouldIgnore(error, isMainFrame: request.isForMainFrame)) {
-                    widget.logger('Ignored WebView error: ${error.type} ${error.description}');
-                    return;
-                  }
+                      if (WebviewErrorUseCase.shouldIgnore(error, isMainFrame: request.isForMainFrame)) {
+                        widget.logger('Ignored WebView error: ${error.type} ${error.description}');
+                        return;
+                      }
 
-                  widget.logger('onReceivedError (main frame)', error: error);
-                  _handleError(error);
-                },
+                      widget.logger('onReceivedError (main frame)', error: error);
+                      _handleError(error);
+                    },
                 onReceivedHttpError:
                     (InAppWebViewController controller, WebResourceRequest request, WebResourceResponse errorResponse) {
-                  final statusCode = errorResponse.statusCode;
-                  if (statusCode == null) {
-                    widget.logger('Ignored HTTP error unknown status code: ${request.url}');
-                    return;
-                  }
+                      final statusCode = errorResponse.statusCode;
+                      if (statusCode == null) {
+                        widget.logger('Ignored HTTP error unknown status code: ${request.url}');
+                        return;
+                      }
 
-                  // 요청이 메인 프레임의 문서를 가져오기 위해 이루어진 것이 아니면 무시
-                  if (!(request.isForMainFrame ?? false)) {
-                    widget.logger('Ignored HTTP error on subresource: ${request.url} → $statusCode');
-                    return;
-                  }
+                      // 요청이 메인 프레임의 문서를 가져오기 위해 이루어진 것이 아니면 무시
+                      if (!(request.isForMainFrame ?? false)) {
+                        widget.logger('Ignored HTTP error on subresource: ${request.url} → $statusCode');
+                        return;
+                      }
 
-                  if (statusCode >= 400) {
-                    widget.logger('onReceivedHttpError (main frame $statusCode): ${request.url}');
-                    final exception = Exception('HTTP $statusCode: ${errorResponse.reasonPhrase}');
-                    _handleError(exception);
-                  }
-                },
+                      if (statusCode >= 400) {
+                        widget.logger('onReceivedHttpError (main frame $statusCode): ${request.url}');
+                        final exception = Exception('HTTP $statusCode: ${errorResponse.reasonPhrase}');
+                        _handleError(exception);
+                      }
+                    },
                 shouldOverrideUrlLoading: (InAppWebViewController controller, NavigationAction navigateAction) async {
                   final url = navigateAction.request.url;
                   if (url == null) return NavigationActionPolicy.CANCEL;
 
-                  final uriValue = url.uriValue;
+                  final rawValueStr = url.rawValue; // ✅ 원본 문자열(대/소문자 보존)
+                  final uriValue = url.uriValue; // ✅ 기존 유지(분기/검사용)
+
                   _redirectedUrls.add(uriValue);
-                  widget.logger('Navigation action request uri: $uriValue');
+                  widget.logger('Navigation action request uri: ${rawValueStr ?? uriValue.toString()}');
 
                   if (uriValue.scheme case 'http' || 'https') {
                     return NavigationActionPolicy.ALLOW;
                   } else if (uriValue.scheme == appScheme) {
                     final params = Map<String, dynamic>.from(url.queryParameters);
                     try {
+                      print('Payment Response Params: $params');
                       final paymentResponse = PaymentResponse.fromJson(params);
                       _handleSuccess(paymentResponse);
                     } on CheckedFromJsonException catch (e, st) {
-                      // Debug logging: missing keys, full map, stack trace
                       widget.logger(
                         '❌ PaymentResponse.fromJson failed!\n'
                         '  Incoming params: $params\n'
@@ -293,24 +297,22 @@ class PortonePaymentState extends State<PortonePayment> {
                     return NavigationActionPolicy.CANCEL;
                   } else if (uriValue.scheme case 'intent') {
                     try {
-                      // Retrieve the raw URL string.
-                      final rawUri = url.rawValue;
-                      // Split the URL using '#' as the delimiter (e.g., "intent://..." and "Intent;scheme=...;end").
+                      // ✅ 의도적으로 원본을 우선 사용 (대/소문자 보존)
+                      final rawUri = rawValueStr ?? uriValue.toString();
+
                       final parts = rawUri.split('#');
                       if (parts.length != 2) {
                         throw const FormatException('Invalid intent URL format: missing fragment');
                       }
-                      final baseUriStr = parts[0]; // e.g., "intent://some_path"
-                      final fragment = parts[1]; // e.g., "Intent;scheme=https;package=com.example;end"
+                      final baseUriStr = parts[0]; // "intent://..."
+                      final fragment = parts[1]; // "Intent;scheme=...;package=...;end"
 
-                      // Remove the "Intent;" prefix if present.
                       var fragmentContent = fragment;
                       const intentPrefix = 'Intent;';
                       if (fragmentContent.startsWith(intentPrefix)) {
                         fragmentContent = fragmentContent.substring(intentPrefix.length);
                       }
 
-                      // Split each parameter using ';' as delimiter and create key-value pairs.
                       final paramsList = fragmentContent.split(';');
                       final params = <String, String>{};
                       for (final param in paramsList) {
@@ -320,19 +322,23 @@ class PortonePaymentState extends State<PortonePayment> {
                         }
                       }
 
-                      // Extract the required 'scheme' parameter.
                       final redirectScheme = params['scheme'];
                       if (redirectScheme == null) {
                         throw const FormatException('Scheme parameter not found in intent URL');
                       }
 
-                      // Safely parse the base URI and replace its scheme.
-                      final baseUri = Uri.parse(baseUriStr);
-                      final redirectUri = baseUri.replace(scheme: redirectScheme);
+                      // ✅ base 부분의 대소문자/경로는 raw에서 유지
+                      //    "intent://" 접두를 제거하고 새 스킴으로 교체해 문자열 재조합
+                      const intentPrefixUrl = 'intent://';
+                      if (!baseUriStr.startsWith(intentPrefixUrl)) {
+                        throw const FormatException('Invalid intent base URL');
+                      }
+                      final afterIntent = baseUriStr.substring(intentPrefixUrl.length); // 원본 케이스 보존
+                      final redirectRaw = '$redirectScheme://$afterIntent';
 
-                      // Validate and launch the redirection URI.
-                      if (await canLaunchUrl(redirectUri)) {
-                        await launchUrl(redirectUri);
+                      // 문자열 기반 실행(원본 보존) — url_launcher의 launchUrlString 사용
+                      if (await canLaunchUrlString(redirectRaw)) {
+                        await launchUrlString(redirectRaw, mode: LaunchMode.externalApplication);
                       }
                     } catch (error, stackTrace) {
                       widget.logger('Intent URL parsing error', error: error, stackTrace: stackTrace);
@@ -341,7 +347,9 @@ class PortonePaymentState extends State<PortonePayment> {
                     return NavigationActionPolicy.CANCEL;
                   } else {
                     try {
-                      await launchUrl(uriValue, mode: LaunchMode.externalApplication);
+                      // ✅ 외부 앱: 원본 문자열로 실행 (대/소문자 보존)
+                      final raw = rawValueStr ?? uriValue.toString();
+                      await launchUrlString(raw, mode: LaunchMode.externalApplication);
                     } catch (error, stack) {
                       widget.logger('Failed to launch external url: $uriValue', error: error, stackTrace: stack);
                     }
