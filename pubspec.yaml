@@ -3,8 +3,8 @@ description: A module for integrating PortOne V2 payment service in Flutter App.
 version: 1.2.1
 repository: https://github.com/AndrewDongminYoo/portone_flutter
 environment:
-  sdk: ^3.9.0
-  flutter: ">=3.35.1"
+  sdk: ^3.8.1
+  flutter: ">=3.32.1"
 dependencies:
   flutter:
     sdk: flutter
@@ -20,7 +20,7 @@ dev_dependencies:
   json_serializable: ^6.11.1
   mockito: ^5.5.1
   mocktail: ^1.0.4
-  very_good_analysis: ^10.0.0
+  very_good_analysis: ^9.0.0
 flutter:
   plugin:
     platforms:

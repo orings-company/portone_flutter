@@ -6,76 +6,85 @@ part of 'payment_request.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-PaymentRequest _$PaymentRequestFromJson(Map<String, dynamic> json) =>
-    PaymentRequest(
-      storeId: json['storeId'] as String,
-      paymentId: json['paymentId'] as String,
-      orderName: json['orderName'] as String,
-      totalAmount: (json['totalAmount'] as num).toInt(),
-      currency: $enumDecode(_$PaymentCurrencyEnumMap, json['currency']),
-      payMethod: $enumDecode(_$PaymentPayMethodEnumMap, json['payMethod']),
-      appScheme: json['appScheme'] as String,
-      pg: $enumDecodeNullable(_$PGCompanyEnumMap, json['pg']),
-      channelKey: json['channelKey'] as String?,
-      channelGroupId: json['channelGroupId'] as String?,
-      taxFreeAmount: (json['taxFreeAmount'] as num?)?.toInt(),
-      vatAmount: (json['vatAmount'] as num?)?.toInt(),
-      customer: json['customer'] == null
-          ? null
-          : Customer.fromJson(json['customer'] as Map<String, dynamic>),
-      windowType: json['windowType'] == null
-          ? null
-          : WindowTypes.fromJson(json['windowType'] as Map<String, dynamic>),
-      redirectUrl: json['redirectUrl'] as String?,
-      noticeUrls: (json['noticeUrls'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
-      confirmUrl: json['confirmUrl'] as String?,
-      isEscrow: json['isEscrow'] as bool?,
-      products: (json['products'] as List<dynamic>?)
-          ?.map((e) => ProductDetail.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      locale: $enumDecodeNullable(_$PaymentLocaleEnumMap, json['locale']),
-      customData: (json['customData'] as Map<String, dynamic>?)?.map(
-        (k, e) => MapEntry(k, e as String),
-      ),
-      isCulturalExpense: json['isCulturalExpense'] as bool?,
-      bypass: json['bypass'] == null
-          ? null
-          : PaymentBypass.fromJson(json['bypass'] as Map<String, dynamic>),
-      country: $enumDecodeNullable(_$CountryEnumMap, json['country']),
-      productType: $enumDecodeNullable(
-        _$ProductTypeEnumMap,
-        json['productType'],
-      ),
-      expiredTime: json['expiredTime'] as String?,
-      cashReceiptTradeOption: $enumDecodeNullable(
-        _$CashReceiptTradeOptionEnumMap,
-        json['cashReceiptTradeOption'],
-      ),
-      offerPeriod: json['offerPeriod'] == null
-          ? null
-          : OfferPeriod.fromJson(json['offerPeriod'] as Map<String, dynamic>),
-      storeDetails: json['storeDetails'] == null
-          ? null
-          : StoreDetails.fromJson(json['storeDetails'] as Map<String, dynamic>),
-      shippingAddress: json['shippingAddress'] == null
-          ? null
-          : Address.fromJson(json['shippingAddress'] as Map<String, dynamic>),
-      promotionId: json['promotionId'] as String?,
-      popup: json['popup'] == null
-          ? null
-          : Popup.fromJson(json['popup'] as Map<String, dynamic>),
-    );
+PaymentRequest _$PaymentRequestFromJson(
+  Map<String, dynamic> json,
+) => PaymentRequest(
+  storeId: json['storeId'] as String,
+  paymentId: json['paymentId'] as String,
+  orderName: json['orderName'] as String,
+  totalAmount: (json['totalAmount'] as num).toInt(),
+  currency: $enumDecode(_$PaymentCurrencyEnumMap, json['currency']),
+  payMethod: $enumDecode(_$PaymentPayMethodEnumMap, json['payMethod']),
+  appScheme: json['appScheme'] as String,
+  pg: $enumDecodeNullable(_$PGCompanyEnumMap, json['pg']),
+  virtualAccount: json['virtualAccount'] == null
+      ? null
+      : VirtualAccount.fromJson(json['virtualAccount'] as Map<String, dynamic>),
+  easyPay: json['easyPay'] == null
+      ? null
+      : EasyPay.fromJson(json['easyPay'] as Map<String, dynamic>),
+  channelKey: json['channelKey'] as String?,
+  channelGroupId: json['channelGroupId'] as String?,
+  taxFreeAmount: (json['taxFreeAmount'] as num?)?.toInt(),
+  vatAmount: (json['vatAmount'] as num?)?.toInt(),
+  customer: json['customer'] == null
+      ? null
+      : Customer.fromJson(json['customer'] as Map<String, dynamic>),
+  windowType: json['windowType'] == null
+      ? null
+      : WindowTypes.fromJson(json['windowType'] as Map<String, dynamic>),
+  redirectUrl: json['redirectUrl'] as String?,
+  noticeUrls: (json['noticeUrls'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  confirmUrl: json['confirmUrl'] as String?,
+  isEscrow: json['isEscrow'] as bool?,
+  products: (json['products'] as List<dynamic>?)
+      ?.map((e) => ProductDetail.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  locale: $enumDecodeNullable(_$PaymentLocaleEnumMap, json['locale']),
+  customData: (json['customData'] as Map<String, dynamic>?)?.map(
+    (k, e) => MapEntry(k, e as String),
+  ),
+  isCulturalExpense: json['isCulturalExpense'] as bool?,
+  bypass: json['bypass'] == null
+      ? null
+      : PaymentBypass.fromJson(json['bypass'] as Map<String, dynamic>),
+  card: json['card'] == null
+      ? null
+      : PaymentRequestUnionCard.fromJson(json['card'] as Map<String, dynamic>),
+  country: $enumDecodeNullable(_$CountryEnumMap, json['country']),
+  productType: $enumDecodeNullable(_$ProductTypeEnumMap, json['productType']),
+  expiredTime: json['expiredTime'] as String?,
+  cashReceiptTradeOption: $enumDecodeNullable(
+    _$CashReceiptTradeOptionEnumMap,
+    json['cashReceiptTradeOption'],
+  ),
+  offerPeriod: json['offerPeriod'] == null
+      ? null
+      : OfferPeriod.fromJson(json['offerPeriod'] as Map<String, dynamic>),
+  storeDetails: json['storeDetails'] == null
+      ? null
+      : StoreDetails.fromJson(json['storeDetails'] as Map<String, dynamic>),
+  shippingAddress: json['shippingAddress'] == null
+      ? null
+      : Address.fromJson(json['shippingAddress'] as Map<String, dynamic>),
+  promotionId: json['promotionId'] as String?,
+  popup: json['popup'] == null
+      ? null
+      : Popup.fromJson(json['popup'] as Map<String, dynamic>),
+);
 
 Map<String, dynamic> _$PaymentRequestToJson(PaymentRequest instance) =>
     <String, dynamic>{
+      'virtualAccount': ?instance.virtualAccount?.toJson(),
+      'easyPay': ?instance.easyPay?.toJson(),
       'storeId': instance.storeId,
       'paymentId': instance.paymentId,
       'orderName': instance.orderName,
       'totalAmount': instance.totalAmount,
-      'currency': _$PaymentCurrencyEnumMap[instance.currency],
-      'payMethod': _$PaymentPayMethodEnumMap[instance.payMethod],
+      'currency': _$PaymentCurrencyEnumMap[instance.currency]!,
+      'payMethod': _$PaymentPayMethodEnumMap[instance.payMethod]!,
       'channelKey': ?instance.channelKey,
       'channelGroupId': ?instance.channelGroupId,
       'taxFreeAmount': ?instance.taxFreeAmount,
@@ -93,6 +102,7 @@ Map<String, dynamic> _$PaymentRequestToJson(PaymentRequest instance) =>
       'customData': ?instance.customData,
       'expiredTime': ?instance.expiredTime,
       'bypass': ?instance.bypass?.toJson(),
+      'card': ?instance.card?.toJson(),
       'country': ?_$CountryEnumMap[instance.country],
       'productType': ?_$ProductTypeEnumMap[instance.productType],
       'cashReceiptTradeOption':
@@ -104,7 +114,7 @@ Map<String, dynamic> _$PaymentRequestToJson(PaymentRequest instance) =>
       'popup': ?instance.popup?.toJson(),
     };
 
-const Map<PaymentCurrency, String> _$PaymentCurrencyEnumMap = {
+const _$PaymentCurrencyEnumMap = {
   PaymentCurrency.KRW: 'CURRENCY_KRW',
   PaymentCurrency.USD: 'CURRENCY_USD',
   PaymentCurrency.EUR: 'CURRENCY_EUR',
@@ -287,7 +297,7 @@ const Map<PaymentCurrency, String> _$PaymentCurrencyEnumMap = {
   PaymentCurrency.ZWL: 'CURRENCY_ZWL',
 };
 
-const Map<PaymentPayMethod, String> _$PaymentPayMethodEnumMap = {
+const _$PaymentPayMethodEnumMap = {
   PaymentPayMethod.card: 'CARD',
   PaymentPayMethod.virtualAccount: 'VIRTUAL_ACCOUNT',
   PaymentPayMethod.transfer: 'TRANSFER',
@@ -297,7 +307,7 @@ const Map<PaymentPayMethod, String> _$PaymentPayMethodEnumMap = {
   PaymentPayMethod.convenienceStore: 'CONVENIENCE_STORE',
 };
 
-const Map<PGCompany, String> _$PGCompanyEnumMap = {
+const _$PGCompanyEnumMap = {
   PGCompany.eximbayV2: 'eximbay_v2',
   PGCompany.hyphen: 'hyphen',
   PGCompany.inicisJp: 'inicis_jp',
@@ -316,7 +326,7 @@ const Map<PGCompany, String> _$PGCompanyEnumMap = {
   PGCompany.welcome: 'welcome_payment',
 };
 
-const Map<PaymentLocale, String> _$PaymentLocaleEnumMap = {
+const _$PaymentLocaleEnumMap = {
   PaymentLocale.koKr: 'KO_KR',
   PaymentLocale.enUs: 'EN_US',
   PaymentLocale.zhCn: 'ZH_CN',
@@ -327,7 +337,7 @@ const Map<PaymentLocale, String> _$PaymentLocaleEnumMap = {
   PaymentLocale.viVn: 'VI_VN',
 };
 
-const Map<Country, String> _$CountryEnumMap = {
+const _$CountryEnumMap = {
   Country.AF: 'COUNTRY_AF',
   Country.AX: 'COUNTRY_AX',
   Country.AL: 'COUNTRY_AL',
@@ -579,12 +589,12 @@ const Map<Country, String> _$CountryEnumMap = {
   Country.ZW: 'COUNTRY_ZW',
 };
 
-const Map<ProductType, String> _$ProductTypeEnumMap = {
+const _$ProductTypeEnumMap = {
   ProductType.digital: 'PRODUCT_TYPE_DIGITAL',
   ProductType.real: 'PRODUCT_TYPE_REAL',
 };
 
-const Map<CashReceiptTradeOption, String> _$CashReceiptTradeOptionEnumMap = {
+const _$CashReceiptTradeOptionEnumMap = {
   CashReceiptTradeOption.culture: 'CULTURE',
   CashReceiptTradeOption.general: 'GENERAL',
   CashReceiptTradeOption.publicTp: 'PUBLIC_TP',

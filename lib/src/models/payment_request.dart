@@ -4,7 +4,10 @@ import 'package:json_annotation/json_annotation.dart';
 // 🌎 Project imports:
 import 'package:portone_flutter_v2/src/enums/enums.dart';
 import 'package:portone_flutter_v2/src/helpers/supported_methods.dart';
+import 'package:portone_flutter_v2/src/models/easy_pay.dart';
 import 'package:portone_flutter_v2/src/models/models.dart';
+import 'package:portone_flutter_v2/src/models/card.dart';
+import 'package:portone_flutter_v2/src/models/virtual_account.dart';
 
 part 'payment_request.g.dart';
 
@@ -21,6 +24,8 @@ class PaymentRequest {
     required this.payMethod,
     required this.appScheme,
     this.pg,
+    this.virtualAccount,
+    this.easyPay,
     this.channelKey,
     this.channelGroupId,
     this.taxFreeAmount,
@@ -36,6 +41,7 @@ class PaymentRequest {
     this.customData,
     this.isCulturalExpense,
     this.bypass,
+    this.card,
     this.country,
     this.productType,
     this.expiredTime,
@@ -60,6 +66,10 @@ class PaymentRequest {
   /// JSON에서 [PaymentRequest] 객체로 변환하는 팩토리 메서드
   factory PaymentRequest.fromJson(Map<String, dynamic> json) =>
       _$PaymentRequestFromJson(json);
+
+  final VirtualAccount? virtualAccount;
+
+  final EasyPay? easyPay;
 
   /// PG사 구분 코드
   ///
@@ -188,6 +198,10 @@ class PaymentRequest {
 
   /// PG사 결제창 호출 시 PG사로 그대로 bypass할 값들의 모음
   final PaymentBypass? bypass;
+
+  /// 카드 결제 설정 ( added by Oring Corporation )
+
+  final PaymentRequestUnionCard? card;
 
   /// ISO 3166-1 alpha-2 국가 코드
   ///
