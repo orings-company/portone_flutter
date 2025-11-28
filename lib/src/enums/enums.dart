@@ -6,3 +6,4 @@ export 'payment_pay_method.dart';
 export 'pg_company.dart';
 export 'product_type.dart';
 export 'window_type.dart';
+export 'card_company.dart';
