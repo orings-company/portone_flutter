@@ -3,6 +3,7 @@
 // 🎯 Dart imports:
 import 'dart:convert';
 import 'dart:developer' show log;
+import 'dart:io';
 
 // 🐦 Flutter imports:
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,7 @@ import 'package:portone_flutter_v2/src/helpers/url_normalizer.dart';
 import 'package:portone_flutter_v2/src/models/payment_request.dart';
 import 'package:portone_flutter_v2/src/models/payment_response.dart';
 import 'package:portone_flutter_v2/src/validators/webview_error_use_case.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 /// Default logger function interface.
 typedef DefaultLogger =
@@ -335,63 +337,42 @@ class _PortonePaymentState extends State<PortonePayment> {
                   final url = navigateAction.request.url;
                   if (url == null) return NavigationActionPolicy.CANCEL;
 
-                  final rawValueStr = url.rawValue; // ✅ 원본 문자열(대/소문자 보존)
-                  final uriValue = url.uriValue; // ✅ 기존 유지(분기/검사용)
-
-                  if (!uriValue.hasScheme) return NavigationActionPolicy.CANCEL;
-
-                  _redirectedUrls.add(
-                    Uri.parse(rawValueStr),
-                  );
-
-                  widget.logger(
-                    'Navigation action request uri: ${rawValueStr ?? uriValue.toString()}',
-                  );
-
-                  if (_isAppMarketHost(uriValue)) {
-                    // Open Google Play (and legacy market.android.com) outside the WebView
-                    await _openPlayStore(uriValue);
+                  final raw = url.rawValue;
+                  if (raw == null || raw.isEmpty) {
                     return NavigationActionPolicy.CANCEL;
                   }
-                  if (uriValue.isScheme('HTTP') || uriValue.isScheme('HTTPS')) {
-                    // Otherwise keep normal web navigation inside the WebView
+
+                  final lowerRaw = raw.toLowerCase();
+                  widget.logger('Navigation action request raw: $raw');
+
+                  _redirectedUrls.add(Uri.parse(raw));
+
+                  /// ✅ 1. http/https → WebView 내부 유지
+                  if (lowerRaw.startsWith('http://') ||
+                      lowerRaw.startsWith('https://')) {
                     return NavigationActionPolicy.ALLOW;
-                  } else if (uriValue.scheme == appScheme) {
-                    final params = Map<String, dynamic>.from(
-                      url.queryParameters,
-                    );
+                  }
+
+                  /// ✅ 2. 결제 완료 콜백
+                  if (lowerRaw.startsWith('${appScheme.toLowerCase()}://')) {
                     try {
+                      final uri = Uri.parse(raw);
+                      final params = Map<String, dynamic>.from(
+                        uri.queryParameters,
+                      );
                       final paymentResponse = PaymentResponse.fromJson(params);
                       _handleSuccess(paymentResponse);
-                    } on CheckedFromJsonException catch (
-                      exception,
-                      stackTrace
-                    ) {
-                      // Debug logging: missing keys, full map, stack trace
-                      widget.logger(
-                        '❌ PaymentResponse.fromJson failed!\n'
-                        '  Incoming params: $params\n'
-                        '  Error message: ${exception.message}\n'
-                        '  Missing key: txId or malformed value?',
-                        error: exception.innerError ?? exception,
-                        stackTrace: exception.innerStack ?? stackTrace,
-                      );
-                      _handleError(exception, stackTrace);
-                    } catch (exception, stackTrace) {
-                      widget.logger(
-                        'Error Occurred',
-                        error: exception,
-                        stackTrace: stackTrace,
-                      );
-                      _handleError(exception, stackTrace);
+                    } catch (e, s) {
+                      _handleError(e, s);
                     }
                     return NavigationActionPolicy.CANCEL;
-                  } else if (uriValue.scheme == 'intent') {
-                    try {
-                      // 1) Secure the original string
-                      final raw = url.rawValue;
+                  }
 
-                      // 2) Separate fragment (#) (no error even if absent)
+                  /// ==========================================================
+                  /// 🔥 ANDROID intent 처리
+                  /// ==========================================================
+                  if (Platform.isAndroid && lowerRaw.startsWith('intent:')) {
+                    try {
                       final hashIndex = raw.indexOf('#');
                       final urlOrigin = hashIndex >= 0
                           ? raw.substring(0, hashIndex)
@@ -400,13 +381,11 @@ class _PortonePaymentState extends State<PortonePayment> {
                           ? raw.substring(hashIndex + 1)
                           : '';
 
-                      // 3) Remove the “Intent;” prefix.
                       const intentPrefix = 'Intent;';
                       if (fragment.startsWith(intentPrefix)) {
                         fragment = fragment.substring(intentPrefix.length);
                       }
 
-                      // 4) Parsing parameters leniently (key=value;key2=value2;... → values are URL-decoded, ‘=’ is allowed)
                       final params = <String, String>{};
                       final regexp = RegExp(r'([A-Za-z0-9_.-]+)=(.*?)(?:;|$)');
                       for (final match in regexp.allMatches(fragment)) {
@@ -419,109 +398,102 @@ class _PortonePaymentState extends State<PortonePayment> {
                       final fallback = params['S.browser_fallback_url'];
                       final package = params['package'];
 
-                      // 5) Scheme-based redirection (intent:// → {scheme}:// replacement)
+                      /// 1️⃣ scheme 직접 실행
                       if (scheme != null) {
-                        // Both intent:// and intent: formats are supported.
                         String replaced;
-                        if (urlOrigin.startsWith('intent://')) {
-                          replaced = urlOrigin.replaceFirst(
-                            'intent://',
+
+                        if (lowerRaw.startsWith('intent://')) {
+                          replaced = raw.replaceFirst(
+                            RegExp(r'^intent://', caseSensitive: false),
                             '$scheme://',
                           );
-                        } else if (urlOrigin.startsWith('intent:')) {
-                          // Example: “intent:some/path” → “{scheme}:some/path”
-                          replaced = urlOrigin.replaceFirst(
-                            'intent:',
+                        } else {
+                          replaced = raw.replaceFirst(
+                            RegExp(r'^intent:', caseSensitive: false),
                             '$scheme:',
                           );
-                        } else {
-                          // Exception case: Be as conservative as possible
-                          replaced = urlOrigin;
                         }
 
-                        final redirectUri = Uri.parse(replaced);
-                        if (await canLaunchUrl(redirectUri)) {
-                          await launchUrl(
-                            redirectUri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                          return NavigationActionPolicy.CANCEL;
-                        }
-                        // If failure occurs, seamlessly transition to the fallback logic below
+                        await launchUrlString(
+                          replaced,
+                          mode: LaunchMode.externalApplication,
+                        );
+                        return NavigationActionPolicy.CANCEL;
                       }
 
-                      // 6) Prioritize browser fallback URL processing
+                      /// 2️⃣ fallback
                       if (fallback != null && fallback.isNotEmpty) {
-                        final fallbackUri = Uri.parse(fallback);
-                        if (await canLaunchUrl(fallbackUri)) {
-                          await launchUrl(
-                            fallbackUri,
+                        await launchUrlString(
+                          fallback,
+                          mode: LaunchMode.externalApplication,
+                        );
+                        return NavigationActionPolicy.CANCEL;
+                      }
+
+                      /// 3️⃣ package → Play Store
+                      if (package != null && package.isNotEmpty) {
+                        final marketUrl = 'market://details?id=$package';
+                        final playStoreUrl =
+                            'https://play.google.com/store/apps/details?id=$package';
+
+                        try {
+                          await launchUrlString(
+                            marketUrl,
                             mode: LaunchMode.externalApplication,
                           );
-                        } else {
-                          // If external execution fails, attempt to load within the WebView
-                          await controller.loadUrl(
-                            urlRequest: URLRequest(url: WebUri(fallback)),
+                        } catch (_) {
+                          await launchUrlString(
+                            playStoreUrl,
+                            mode: LaunchMode.externalApplication,
                           );
                         }
+
                         return NavigationActionPolicy.CANCEL;
                       }
-
-                      // 7) If only the package exists: Attempt to redirect to the app store
-                      if (package != null && package.isNotEmpty) {
-                        final appMarket = Uri.parse(
-                          'market://details?id=$package',
-                        );
-                        final playStore = Uri.parse(
-                          'https://play.google.com/store/apps/details?id=$package',
-                        );
-
-                        if (await canLaunchUrl(appMarket)) {
-                          await _openPlayStore(appMarket);
-                        } else if (await canLaunchUrl(playStore)) {
-                          await _openPlayStore(playStore);
-                        } else {
-                          widget.logger(
-                            'No handler for package: $package and no market available.',
-                          );
-                        }
-                        return NavigationActionPolicy.CANCEL;
-                      }
-
-                      // 8) If nothing is found: Quietly cancel (do not throw an error)
-                      widget.logger(
-                        'Unsupported intent URL: $raw (no scheme/fallback/package)',
-                      );
-                    } catch (error, stackTrace) {
-                      widget.logger(
-                        'Intent URL parsing error',
-                        error: error,
-                        stackTrace: stackTrace,
-                      );
-                      _handleError(error, stackTrace);
+                    } catch (e, s) {
+                      _handleError(e, s);
                     }
-                    return NavigationActionPolicy.CANCEL;
-                  } else {
-                    try {
-                      await launchUrl(
-                        uriValue,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } on PlatformException catch (error, stack) {
-                      widget.logger(
-                        'Failed to launch external url: $uriValue',
-                        error: error,
-                        stackTrace: stack,
-                      );
-                    } on Exception catch (error, stack) {
-                      widget.logger(
-                        'Failed to launch external url: $uriValue',
-                        error: error,
-                        stackTrace: stack,
-                      );
-                    }
+
                     return NavigationActionPolicy.CANCEL;
                   }
+
+                  /// ==========================================================
+                  /// 🔥 iOS custom scheme 처리
+                  /// ==========================================================
+                  if (Platform.isIOS) {
+                    try {
+                      final launched = await launchUrlString(
+                        raw,
+                        mode: LaunchMode.externalApplication,
+                      );
+
+                      if (!launched) {
+                        widget.logger('iOS scheme launch failed: $raw');
+                      }
+                    } catch (e, s) {
+                      _handleError(e, s);
+                    }
+
+                    return NavigationActionPolicy.CANCEL;
+                  }
+
+                  /// ==========================================================
+                  /// 기타 모든 scheme
+                  /// ==========================================================
+                  try {
+                    await launchUrlString(
+                      raw,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } catch (e, s) {
+                    widget.logger(
+                      'External launch failed: $raw',
+                      error: e,
+                      stackTrace: s,
+                    );
+                  }
+
+                  return NavigationActionPolicy.CANCEL;
                 },
               ),
             ],
