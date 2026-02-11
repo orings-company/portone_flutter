@@ -313,8 +313,7 @@ class _PortonePaymentState extends State<PortonePayment> {
                     );
                     return;
                   }
-
-                  // Ignore if the request is not made to retrieve a document from the main frame
+                  // 요청이 메인 프레임의 문서를 가져오기 위해 이루어진 것이 아니면 무시
                   if (!(request.isForMainFrame ?? false)) {
                     widget.logger(
                       'Ignored HTTP error on subresource: ${request.url} → $statusCode',
@@ -336,11 +335,18 @@ class _PortonePaymentState extends State<PortonePayment> {
                   final url = navigateAction.request.url;
                   if (url == null) return NavigationActionPolicy.CANCEL;
 
-                  final uriValue = url.uriValue;
+                  final rawValueStr = url.rawValue; // ✅ 원본 문자열(대/소문자 보존)
+                  final uriValue = url.uriValue; // ✅ 기존 유지(분기/검사용)
+
                   if (!uriValue.hasScheme) return NavigationActionPolicy.CANCEL;
 
-                  _redirectedUrls.add(uriValue);
-                  widget.logger('Navigation action request uri: $uriValue');
+                  _redirectedUrls.add(
+                    Uri.parse(rawValueStr),
+                  );
+
+                  widget.logger(
+                    'Navigation action request uri: ${rawValueStr ?? uriValue.toString()}',
+                  );
 
                   if (_isAppMarketHost(uriValue)) {
                     // Open Google Play (and legacy market.android.com) outside the WebView
